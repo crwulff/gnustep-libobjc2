@@ -107,13 +107,13 @@ $(LIBOBJCXX).so.$(VERSION): $(LIBOBJC).so.$(VERSION) $(OBJCXX_OBJECTS)
 	$(SILENT)echo Linking shared Objective-C++ runtime library...
 	$(SILENT)$(CXX) -shared \
             -Wl,-soname=$(LIBOBJCXX).so.$(MAJOR_VERSION) $(LDFLAGS) \
-            -o $@ $(OBJCXX_OBJECTS)
+            -o $@ $(OBJCXX_OBJECTS) $(LDFLAGS)
 
 $(LIBOBJC).so.$(VERSION): $(OBJECTS)
 	$(SILENT)echo Linking shared Objective-C runtime library...
 	$(SILENT)$(CC) -shared -rdynamic \
             -Wl,-soname=$(LIBOBJC).so.$(MAJOR_VERSION) $(LDFLAGS) \
-            -o $@ $(OBJECTS)
+            -o $@ $(OBJECTS) $(LDFLAGS)
 
 $(LIBOBJC).a: $(OBJECTS)
 	$(SILENT)echo Linking static Objective-C runtime library...
