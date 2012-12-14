@@ -32,6 +32,11 @@ CPPFLAGS += -DNO_SELECTOR_MISMATCH_WARNINGS
 #CPPFLAGS += -g -O0 -fno-inline
 CPPFLAGS += -O3
 
+LIBGCC:=$(shell $(CC) --print-file-name=libgcc.a)
+USE_X86_THUNK:=$(shell nm $(LIBGCC) | grep -c __x86.get_pc_thunk.bx)
+
+ASMFLAGS += -DUSE_X86_THUNK=$(USE_X86_THUNK)
+
 PREFIX?= /usr/local
 LIB_DIR= ${PREFIX}/lib
 HEADER_DIR= ${PREFIX}/include
