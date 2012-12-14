@@ -28,6 +28,12 @@ ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 CFLAGS += -g
 endif
 
+ifeq ($(ARCH),amd64)
+DEB_TARGET_ARCH=x86_64
+else
+DEB_TARGET_ARCH=i386
+endif
+
 
 # -----------------------------------------------------------------------------
 
@@ -38,7 +44,7 @@ clean_files += debian/build-shared-stamp
 debian/build-shared-stamp:
 	dh_testdir
 	@: # build shared libs
-	$(MAKE) ADDITIONAL_CFLAGS="$(CFLAGS)" CC=clang
+	$(MAKE) ADDITIONAL_CFLAGS="$(CFLAGS)" CC=clang CXX=clang
 	touch $@
 
 
@@ -50,7 +56,7 @@ clean_files += debian/build-static-stamp
 debian/build-static-stamp: 
 	dh_testdir
 	@: # build dev/static libs
-	$(MAKE) ADDITIONAL_CFLAGS="$(CFLAGS)" CC=clang
+	$(MAKE) ADDITIONAL_CFLAGS="$(CFLAGS)" CC=clang CXX=clang
 	touch $@
 
 build-debug: debian/build-debug-stamp
@@ -76,7 +82,7 @@ install-shared: build-shared
 	dh_prep -p$(p_lib)
 
 	@: # install shared version of libraries
-	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/x86_64-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep
+	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/$(DEB_TARGET_ARCH)-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep
 	dh_install --list-missing --sourcedir=$(d_inst)
 
 install-static: install-shared build-static
@@ -85,7 +91,7 @@ install-static: install-shared build-static
 	dh_prep -p$(p_dev)
 
 	@: # install shared version of libraries
-	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/x86_64-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep
+	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/$(DEB_TARGET_ARCH)-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep
 	dh_install --list-missing --sourcedir=$(d_inst)
 
 install-debug: build-debug
