@@ -28,7 +28,7 @@ ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 CFLAGS += -g
 endif
 
-ifeq ($(ARCH),amd64)
+ifeq ($(shell dpkg-architecture -qDEB_BUILD_ARCH),amd64)
 DEB_TARGET_ARCH=x86_64
 else
 DEB_TARGET_ARCH=i386

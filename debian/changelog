@@ -1,3 +1,9 @@
+gnustep-libobjc2 (20121213ppa2) quantal; urgency=low
+
+  * Fix target arch detection
+
+ -- Chris Wulff <crwulff@cybertron>  Fri, 14 Dec 2012 20:56:39 -0500
+
 gnustep-libobjc2 (20121213ppa1) quantal; urgency=low
 
   * git snapshot
