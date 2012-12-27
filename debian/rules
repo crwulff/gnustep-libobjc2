@@ -22,10 +22,14 @@ clean_files += $(d_lib)
 clean_files += $(d_dev)
 clean_files += $(d_dbg)
 
-CFLAGS := $(shell dpkg-buildflags --get CFLAGS)
+CPPFLAGS := $(shell dpkg-buildflags --get CPPFLAGS)
+CFLAGS := $(shell DEB_CFLAGS_MAINT_STRIP='-fstack-protector --param=ssp-buffer-size=4' dpkg-buildflags --get CFLAGS)
+LDFLAGS := $(shell dpkg-buildflags --get LDFLAGS)
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 CFLAGS += -g
+CPPFLAGS += -g
+LDFLAGS += -g
 endif
 
 ifeq ($(shell dpkg-architecture -qDEB_BUILD_ARCH),amd64)
@@ -44,7 +48,7 @@ clean_files += debian/build-shared-stamp
 debian/build-shared-stamp:
 	dh_testdir
 	@: # build shared libs
-	$(MAKE) ADDITIONAL_CFLAGS="$(CFLAGS)" CC=clang CXX=clang
+	$(MAKE) CFLAGS="$(CFLAGS) -fPIC" LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS)" CC=clang CXX=clang
 	touch $@
 
 
@@ -56,7 +60,7 @@ clean_files += debian/build-static-stamp
 debian/build-static-stamp: 
 	dh_testdir
 	@: # build dev/static libs
-	$(MAKE) ADDITIONAL_CFLAGS="$(CFLAGS)" CC=clang CXX=clang
+	$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS)" CC=clang CXX=clang
 	touch $@
 
 build-debug: debian/build-debug-stamp

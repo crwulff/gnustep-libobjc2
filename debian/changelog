@@ -1,11 +1,23 @@
+gnustep-libobjc2 (20121213ppa4) quantal; urgency=low
+
+  * Depend on libdispatch to get real dispatch routines
+
+ -- Chris Wulff <crwulff@gmail.com>  Wed, 26 Dec 2012 22:53:19 -0500
+
+gnustep-libobjc2 (20121213ppa3) quantal; urgency=low
+
+  * Pass along flags so debug syms get built.
+
+ -- Chris Wulff <crwulff@gmail.com>  Sun, 16 Dec 2012 21:33:50 -0500
+
 gnustep-libobjc2 (20121213ppa2) quantal; urgency=low
 
   * Fix target arch detection
 
- -- Chris Wulff <crwulff@cybertron>  Fri, 14 Dec 2012 20:56:39 -0500
+ -- Chris Wulff <crwulff@gmail.com>  Fri, 14 Dec 2012 20:56:39 -0500
 
 gnustep-libobjc2 (20121213ppa1) quantal; urgency=low
 
   * git snapshot
 
- -- Chris Wulff <crwulff@cybertron>  Thu, 13 Dec 2012 22:43:09 -0500
+ -- Chris Wulff <crwulff@gmail.com>  Thu, 13 Dec 2012 22:43:09 -0500

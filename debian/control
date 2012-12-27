@@ -5,7 +5,8 @@ Uploaders: Chris Wulff <crwulff@gmail.com>
 Maintainer: Chris Wulff <crwulff@gmail.com>
 Standards-Version: 3.9.3
 Build-Depends: debhelper (>= 7),
-		clang (>= 3.1)
+		clang (>= 3.1),
+		libdispatch-dev
 Homepage: http://gnustep.org
 Vcs-Git: git://github.com/gnustep/gnustep-libobjc2.git
 Vcs-Browser: https://github.com/gnustep/gnustep-libobjc2
@@ -23,6 +24,7 @@ Package: gnustep-libobjc2-dev
 Section: libdevel
 Architecture: any
 Depends: gnustep-libobjc2 (= ${binary:Version}),
+	 libdispatch-dev,
 	 ${misc:Depends},
 	 ${gnustep:Depends}
 Description: GNUstep Objective-C header files and development libraries
