@@ -32,6 +32,8 @@ CPPFLAGS += -g
 LDFLAGS += -g
 endif
 
+LDFLAGS += -ldispatch
+
 ifeq ($(shell dpkg-architecture -qDEB_BUILD_ARCH),amd64)
 DEB_TARGET_ARCH=x86_64
 else
