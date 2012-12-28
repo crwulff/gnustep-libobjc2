@@ -6,7 +6,11 @@ Maintainer: Chris Wulff <crwulff@gmail.com>
 Standards-Version: 3.9.3
 Build-Depends: debhelper (>= 7),
 		clang (>= 3.1),
-		libdispatch-dev
+		cmake,
+		pkg-config,
+		gnustep-make (>= 2.6.1),
+		libdispatch-dev,
+		libgc-dev
 Homepage: http://gnustep.org
 Vcs-Git: git://github.com/gnustep/gnustep-libobjc2.git
 Vcs-Browser: https://github.com/gnustep/gnustep-libobjc2

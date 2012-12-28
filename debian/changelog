@@ -1,3 +1,10 @@
+gnustep-libobjc2 (20121227ppa1) quantal; urgency=low
+
+  * Update to git head
+  * Enable garbage collection
+
+ -- Chris Wulff <crwulff@gmail.com>  Thu, 27 Dec 2012 21:02:15 -0500
+
 gnustep-libobjc2 (20121213ppa5) quantal; urgency=low
 
   * Also link against libdispatch

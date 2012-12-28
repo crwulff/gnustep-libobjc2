@@ -45,12 +45,25 @@ endif
 
 build: build-arch
 
+config: debian/config-stamp
+clean_files += debian/config-stamp
+clean_files += CMakeFiles/
+clean_files += CPackConfig.cmake
+clean_files += CPackSourceConfig.cmake
+clean_files += cmake_install.cmake
+clean_files += cmake_uninstall.cmake
+clean_files += CMakeCache.txt
+debian/config-stamp:
+	CC=clang CXX=clang cmake -G "Unix Makefiles" -DBOEHM_GC:BOOL=TRUE -DBUILD_STATIC_LIBOBJC:BOOL=TRUE -DLEGACY_COMPAT:BOOL=TRUE
+	touch $@
+
+
 build-shared: debian/build-shared-stamp
 clean_files += debian/build-shared-stamp
-debian/build-shared-stamp:
+debian/build-shared-stamp: config
 	dh_testdir
 	@: # build shared libs
-	$(MAKE) CFLAGS="$(CFLAGS) -fPIC" LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS)" CC=clang CXX=clang
+	$(MAKE) CFLAGS="$(CFLAGS) -fPIC" LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS)" ASM_FLAGS="$(ASM_FLAGS) -no-integrated-as"
 	touch $@
 
 
@@ -59,10 +72,10 @@ build-arch: build-shared build-static build-debug
 
 build-static: debian/build-static-stamp
 clean_files += debian/build-static-stamp
-debian/build-static-stamp: 
+debian/build-static-stamp: config
 	dh_testdir
 	@: # build dev/static libs
-	$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS)" CC=clang CXX=clang
+	$(MAKE) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS)" ASM_FLAGS="$(ASM_FLAGS) -no-integrated-as"
 	touch $@
 
 build-debug: debian/build-debug-stamp
@@ -88,7 +101,7 @@ install-shared: build-shared
 	dh_prep -p$(p_lib)
 
 	@: # install shared version of libraries
-	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/$(DEB_TARGET_ARCH)-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep
+	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/$(DEB_TARGET_ARCH)-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep VERSION="4.6.0" MAJOR_VERSION="4" MINOR_VERSION="6" LIBOBJC="libobjc" LIBOBJCXX="libobjcxx"
 	dh_install --list-missing --sourcedir=$(d_inst)
 
 install-static: install-shared build-static
@@ -97,7 +110,7 @@ install-static: install-shared build-static
 	dh_prep -p$(p_dev)
 
 	@: # install shared version of libraries
-	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/$(DEB_TARGET_ARCH)-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep
+	$(MAKE) install LIB_DIR=$(d_inst)/usr/lib/$(DEB_TARGET_ARCH)-linux-gnu/ HEADER_DIR=$(d_inst)/usr/include/GNUstep VERSION="4.6.0" MAJOR_VERSION="4" MINOR_VERSION="6" LIBOBJC="libobjc" LIBOBJCXX="libobjcxx"
 	dh_install --list-missing --sourcedir=$(d_inst)
 
 install-debug: build-debug
@@ -131,16 +144,16 @@ binary-arch: debian/control build-arch install-arch
 	dh_builddeb -s
 
 
-clean:
+clean: config
 	dh_testdir
 	dh_testroot
-	rm -rf $(clean_files)
 	$(MAKE) clean
+	rm -rf $(clean_files)
 	dh_clean
 
 
 binary: binary-indep binary-arch
-.PHONY: clean \
+.PHONY: clean config \
 	build build-indep build-arch build-shared build-static build-debug \
 	install install-indep install-arch \
 	install-shared install-static install-debug \
