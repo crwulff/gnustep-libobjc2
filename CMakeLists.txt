@@ -2,15 +2,18 @@ cmake_minimum_required(VERSION 2.8)
 
 
 project(libobjc)
+enable_language(ASM)
 
-list(INSERT CMAKE_C_FLAGS_DEBUG 0 "-g -O0 -fno-inline")
-list(INSERT CMAKE_C_FLAGS_RELEASE 0 "-O3")
-list(APPEND CMAKE_C_FLAGS "-std=gnu99")
+set(CMAKE_C_FLAGS_DEBUG "-g -O0 -fno-inline ${CMAKE_C_FLAGS_DEBUG}")
+set(CMAKE_C_FLAGS_RELEASE "-O3 ${CMAKE_C_FLAGS_RELEASE}")
+set(CMAKE_C_FLAGS "-std=gnu99 ${CMAKE_C_FLAGS}")
 
 set(libobjc_VERSION 4.6)
 
-add_definitions(
-	-DGNUSTEP -D__OBJC_RUNTIME_INTERNAL__=1  -D_XOPEN_SOURCE=500 -D__BSD_VISIBLE=1 -D_BSD_SOURCE=1)
+# Build configuration
+add_definitions( -DGNUSTEP -D__OBJC_RUNTIME_INTERNAL__=1)
+# Probably not needed anymore?
+#add_definitions( -D_XOPEN_SOURCE=500 -D__BSD_VISIBLE=1 -D_BSD_SOURCE=1)
 
 set(libobjc_ASM_SRCS 
 	block_trampolines.S
@@ -70,9 +73,9 @@ set(libobjcxx_CXX_SRCS objcxx_eh.cc)
 # For release builds, we disable spamming the terminal with warnings about
 # selector type mismatches
 if (CMAKE_BUILD_TYPE STREQUAL Release)
-	ADD_DEFINITIONS(-DNO_SELECTOR_MISMATCH_WARNINGS)
+	add_definitions(-DNO_SELECTOR_MISMATCH_WARNINGS)
 else ()
-	ADD_DEFINITIONS(-DGC_DEBUG)
+	add_definitions(-DGC_DEBUG)
 endif ()
 
 set(TYPE_DEPENDENT_DISPATCH TRUE CACHE BOOL
@@ -80,11 +83,13 @@ set(TYPE_DEPENDENT_DISPATCH TRUE CACHE BOOL
 if (TYPE_DEPENDENT_DISPATCH)
 	add_definitions(-DTYPE_DEPENDENT_DISPATCH)
 endif ()
+
 set(LOW_MEMORY FALSE CACHE BOOL
 	"Enable low-memory profile *HIGHLY EXPERIMENTAL*")
 if (LOW_MEMORY)
 	add_definitions(-D__OBJC_LOW_MEMORY__)
 endif ()
+
 set(BOEHM_GC FALSE CACHE BOOL
 	"Enable garbage collection support (not recommended)")
 if (BOEHM_GC)
@@ -97,13 +102,14 @@ if (BOEHM_GC)
 	else ()
 		find_library(LIBGC gc PATHS GC_LIBRARY_DIRS)
 	endif ()
-	message("-- Using Boehm GC library: ${LIBGC}")
+	message(STATUS "Using Boehm GC library: ${LIBGC}")
 	include_directories(GC_INCLUDE_DIRS)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${GC_CFLAGS}")
 	set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fobjc-gc")
-	set(CMAKE_LINK_FLAGS "${CMAKE_LINK_FLAGS} ${GC_CFLAGS}")
+	set(objc_LINK_FLAGS "${objc_LINK_FLAGS} ${GC_CFLAGS}")
 	add_definitions(-DENABLE_GC)
 endif ()
+
 set(LEGACY_COMPAT FALSE CACHE BOOL
 	"Enable legacy compatibility features")
 if (LEGACY_COMPAT)
@@ -111,15 +117,27 @@ if (LEGACY_COMPAT)
 else ()
 	add_definitions(-DNO_LEGACY)
 endif ()
-set(LLVM_OPTS TRUE CACHE BOOL
+
+find_package(LLVM)
+set(LLVM_OPTS ${LLVM_FOUND} CACHE BOOL
 	"Build LLVM Objective-C optimisations")
 if (LLVM_OPTS)
 	add_subdirectory(opts)
+	message(STATUS "Found LLVM, enabling LLVM optimisations")
 endif ()
+
+set(LIBOBJC_NAME "objc" CACHE STRING 
+	"Name of the Objective-C runtime library (e.g. objc2 for libobjc2)")
+
+set(INCLUDE_DIRECTORY "objc" CACHE STRING 
+	"Subdirectory of the include path to install the headers.")
 
 
 if (${CMAKE_C_COMPILER_ID} MATCHES Clang*)
 	set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -Wno-deprecated-objc-isa-usage -Wno-objc-root-class")
+	if (${CMAKE_C_COMPILER_VERSION} VERSION_GREATER 3.1)
+		set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fobjc-runtime=gnustep-1.7")
+	endif ()
 	if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=i586")
 	endif ()
@@ -152,33 +170,52 @@ endif (NOT CXX_RUNTIME)
 # for Objective-C and Objective-C++.  If not, then we need to provide a
 # separate libobjcxx.
 if (CXX_RUNTIME)
-	message("-- Using ${CXX_RUNTIME} as the C++ runtime library")
+	message(STATUS "Using ${CXX_RUNTIME} as the C++ runtime library")
 	set(libobjc_CXX_SRCS ${libobjcxx_CXX_SRCS})
 	# We don't want to link the STL implementation (e.g. libstdc++) if we have
 	# a separate C++ runtime.
 	set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
 else (CXX_RUNTIME)
-	message("-- No C++ runtime library found")
+	message(STATUS "No C++ runtime library found")
 	add_library(objcxx SHARED ${libobjcxx_CXX_SRCS})
 	set_target_properties(objcxx PROPERTIES
 		LINKER_LANGUAGE C
 		SOVERSION ${libobjc_VERSION}
 		)
+	set(CXX_RUNTIME "")
+	list(APPEND INSTALL_TARGETS objcxx)
 endif (CXX_RUNTIME)
-
-add_library(objc SHARED ${libobjc_C_SRCS} ${libobjc_ASM_SRCS} ${libobjc_OBJC_SRCS} ${libobjc_CXX_SRCS} ${libobjc_HDRS})
-
-set_target_properties(objc PROPERTIES
-	LINKER_LANGUAGE C
-	PUBLIC_HEADER "${libobjc_HDRS}"
-	SOVERSION ${libobjc_VERSION}
-	)
 
 # Currently, we actually need pthreads, but we should use the platform's native
 # threading implementation (we do for everything except thread-local storage)
 set(CMAKE_THREAD_PREFER_PTHREAD)
 include(FindThreads)
-list(APPEND CMAKE_LINK_FLAGS CMAKE_THREAD_LIBS_INIT)
+set(objc_LINK_FLAGS "${objc_LINK_FLAGS} ${CMAKE_THREAD_LIBS_INIT}")
+
+
+
+add_library(objc SHARED ${libobjc_C_SRCS} ${libobjc_ASM_SRCS} ${libobjc_OBJC_SRCS} ${libobjc_CXX_SRCS})
+
+set_target_properties(objc PROPERTIES
+	LINKER_LANGUAGE C
+	SOVERSION ${libobjc_VERSION}
+	OUTPUT_NAME ${LIBOBJC_NAME}
+	LINK_FLAGS "${objc_LINK_FLAGS}"
+	)
+set(INSTALL_TARGETS objc)
+
+
+set(BUILD_STATIC_LIBOBJC false CACHE BOOL
+	"Build the static version of libobjc")
+if (BUILD_STATIC_LIBOBJC)
+	add_library(objc-static STATIC ${libobjc_C_SRCS} ${libobjc_ASM_SRCS} ${libobjc_OBJC_SRCS} ${libobjc_CXX_SRCS})
+	set_target_properties(objc-static PROPERTIES
+		POSITION_INDEPENDENT_CODE true
+		OUTPUT_NAME ${LIBOBJC_NAME})
+	list(APPEND INSTALL_TARGETS objc-static)
+endif ()
+
+
 
 # Explicitly link the C++ runtime and libgc if we are compiling with gc support.
 target_link_libraries(objc ${CXX_RUNTIME})
@@ -191,9 +228,12 @@ endif ()
 #
 
 
-EXEC_PROGRAM(gnustep-config
-	ARGS "--installation-domain-for=libobjc2"
-	OUTPUT_VARIABLE DEFAULT_INSTALL_TYPE)
+find_program(GNUSTEP_CONFIG gnustep-config)
+if (GNUSTEP_CONFIG)
+	EXEC_PROGRAM(gnustep-config
+		ARGS "--installation-domain-for=libobjc2"
+		OUTPUT_VARIABLE DEFAULT_INSTALL_TYPE)
+endif ()
 
 
 # If we have GNUstep environment variables, then default to installing in the
@@ -202,9 +242,9 @@ if (DEFAULT_INSTALL_TYPE)
 else ()
 	set(DEFAULT_INSTALL_TYPE "NONE")
 endif ()
+
 set(GNUSTEP_INSTALL_TYPE ${DEFAULT_INSTALL_TYPE} CACHE STRING
 	"GNUstep installation type.  Options are NONE, SYSTEM, NETWORK or LOCAL.")
-
 if (${GNUSTEP_INSTALL_TYPE} STREQUAL "NONE")
 	SET(LIB_INSTALL_PATH lib)
 	SET(HEADER_INSTALL_PATH "include")
@@ -215,11 +255,43 @@ else ()
 	EXEC_PROGRAM(gnustep-config
 		ARGS "--variable=GNUSTEP_${GNUSTEP_INSTALL_TYPE}_HEADERS"
 		OUTPUT_VARIABLE HEADER_INSTALL_PATH)
-else ()
-elseif (${GNUSTEP_INSTALL_TYPE} EQUAL "Local")
 endif ()
+message(STATUS "GNUstep install type set to ${GNUSTEP_INSTALL_TYPE}")
 
-install(TARGETS objc
+install(TARGETS ${INSTALL_TARGETS}
 	LIBRARY DESTINATION ${LIB_INSTALL_PATH}
-	ARCHIVE DESTINATION ${LIB_INSTALL_PATH}
-	PUBLIC_HEADER DESTINATION "${HEADER_INSTALL_PATH}/objc")
+	ARCHIVE DESTINATION ${LIB_INSTALL_PATH})
+install(FILES ${libobjc_HDRS}
+	DESTINATION "${HEADER_INSTALL_PATH}/${INCLUDE_DIRECTORY}")
+
+
+
+set(CPACK_GENERATOR TGZ CACHE STRING
+	"Installer types to generate.  Sensible options include TGZ, RPM and DEB")
+
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "GNUstep Objective-C Runtime")
+set(CPACK_PACKAGE_VENDOR "The GNUstep Project")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/COPYING")
+set(CPACK_PACKAGE_VERSION_MAJOR "1")
+set(CPACK_PACKAGE_VERSION_MINOR "7")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(CPACK_PACKAGE_CONTACT "GNUstep Developer <gnustep-dev@gnu.org>")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "CMake ${CMake_VERSION_MAJOR}.${CMake_VERSION_MINOR}")
+if (UNIX)
+	set(CPACK_STRIP_FILES true CACHE BOOL "Strip libraries when packaging")
+endif ()
+include (CPack)
+
+# uninstall target
+configure_file(
+	"${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+	IMMEDIATE @ONLY)
+
+add_custom_target(uninstall
+	COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+
+#enable_testing()
+#add_subdirectory(Test)
+

@@ -84,6 +84,82 @@ void objc_setProperty(id obj, SEL _cmd, ptrdiff_t offset, id arg, BOOL isAtomic,
 	objc_release(old);
 }
 
+void objc_setProperty_atomic(id obj, SEL _cmd, id arg, ptrdiff_t offset)
+{
+	char *addr = (char*)obj;
+	addr += offset;
+	arg = objc_retain(arg);
+	volatile int *lock = lock_for_pointer(addr);
+	lock_spinlock(lock);
+	id old = *(id*)addr;
+	*(id*)addr = arg;
+	unlock_spinlock(lock);
+	objc_release(old);
+}
+
+void objc_setProperty_atomic_copy(id obj, SEL _cmd, id arg, ptrdiff_t offset)
+{
+	char *addr = (char*)obj;
+	addr += offset;
+
+	arg = [arg copy];
+	volatile int *lock = lock_for_pointer(addr);
+	lock_spinlock(lock);
+	id old = *(id*)addr;
+	*(id*)addr = arg;
+	unlock_spinlock(lock);
+	objc_release(old);
+}
+
+void objc_setProperty_nonatomic(id obj, SEL _cmd, id arg, ptrdiff_t offset)
+{
+	char *addr = (char*)obj;
+	addr += offset;
+	arg = objc_retain(arg);
+	id old = *(id*)addr;
+	*(id*)addr = arg;
+	objc_release(old);
+}
+
+void objc_setProperty_nonatomic_copy(id obj, SEL _cmd, id arg, ptrdiff_t offset)
+{
+	char *addr = (char*)obj;
+	addr += offset;
+	id old = *(id*)addr;
+	*(id*)addr = [arg copy];
+	objc_release(old);
+}
+
+void objc_copyCppObjectAtomic(void *dest, const void *src,
+                              void (*copyHelper) (void *dest, const void *source))
+{
+	volatile int *lock = lock_for_pointer(src < dest ? src : dest);
+	volatile int *lock2 = lock_for_pointer(src < dest ? dest : src);
+	lock_spinlock(lock);
+	lock_spinlock(lock2);
+	copyHelper(dest, src);
+	unlock_spinlock(lock);
+	unlock_spinlock(lock2);
+}
+
+void objc_getCppObjectAtomic(void *dest, const void *src,
+                             void (*copyHelper) (void *dest, const void *source))
+{
+	volatile int *lock = lock_for_pointer(src);
+	lock_spinlock(lock);
+	copyHelper(dest, src);
+	unlock_spinlock(lock);
+}
+
+void objc_setCppObjectAtomic(void *dest, const void *src,
+                             void (*copyHelper) (void *dest, const void *source))
+{
+	volatile int *lock = lock_for_pointer(dest);
+	lock_spinlock(lock);
+	copyHelper(dest, src);
+	unlock_spinlock(lock);
+}
+
 /**
  * Structure copy function.  This is provided for compatibility with the Apple
  * APIs (it's an ABI function, so it's semi-public), but it's a bad design so
@@ -99,8 +175,8 @@ void objc_copyPropertyStruct(void *dest,
 {
 	if (atomic)
 	{
-		volatile int *lock = lock_for_pointer(src);
-		volatile int *lock2 = lock_for_pointer(src);
+		volatile int *lock = lock_for_pointer(src < dest ? src : dest);
+		volatile int *lock2 = lock_for_pointer(src < dest ? dest : src);
 		lock_spinlock(lock);
 		lock_spinlock(lock2);
 		memcpy(dest, src, size);
