@@ -141,8 +141,8 @@ static dtable_t create_dtable_for_class(Class class, dtable_t root_dtable)
 
 PRIVATE void objc_resize_dtables(uint32_t newSize)
 {
-	if (1<<dtable_depth > newSize) { return; }
-	dtable_depth <<= 1;
+	if ((1<<dtable_depth > newSize) || (dtable_depth >= 32)) { return; }
+	dtable_depth += 8;
 }
 
 #define HASH_UID(uid) ((uid >> 2) & 7)
@@ -551,11 +551,11 @@ Class class_table_next(void **e);
 PRIVATE void objc_resize_dtables(uint32_t newSize)
 {
 	// If dtables already have enough space to store all registered selectors, do nothing
-	if (1<<dtable_depth > newSize) { return; }
+	if ((1<<dtable_depth > newSize) || (dtable_depth >= 32)) { return; }
 
 	LOCK_RUNTIME_FOR_SCOPE();
 
-	dtable_depth <<= 1;
+	dtable_depth += 8;
 
 	uint32_t oldMask = uninstalled_dtable->mask;
 

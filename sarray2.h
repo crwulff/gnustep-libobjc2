@@ -71,22 +71,17 @@ static inline void* SparseArrayLookup(SparseArray * sarray, uint32_t index)
 	switch (sarray->shift)
 	{
 		default: UNREACHABLE("broken sarray");
+		case 24:
+			 sarray = (SparseArray*)sarray->data[(i & 0xff000000)>>24];
+			 if (!sarray) return sarray;
+		case 16:
+			 sarray = (SparseArray*)sarray->data[(i & 0xff0000)>>16];
+			 if (!sarray) return sarray;
+		case 8:
+			 sarray = (SparseArray*)sarray->data[(i & 0xff00)>>8];
+			 if (!sarray) return sarray;
 		case 0:
 			return sarray->data[i & 0xff];
-		case 8:
-			return 
-				((SparseArray*)sarray->data[(i & 0xff00)>>8])->data[(i & 0xff)];
-		case 16:
-			return 
-				((SparseArray*)((SparseArray*)
-					sarray->data[(i & 0xff0000)>>16])->
-						data[(i & 0xff00)>>8])->data[(i & 0xff)];
-		case 24:
-			return 
-				((SparseArray*)((SparseArray*)((SparseArray*)
-					sarray->data[(i & 0xff000000)>>24])->
-						data[(i & 0xff0000)>>16])->
-							data[(i & 0xff00)>>8])->data[(i & 0xff)];
 	}
 	/*
 	while(sarray->shift > 0)
