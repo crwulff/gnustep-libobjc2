@@ -35,7 +35,7 @@ set(libobjc_C_SRCS
 	dtable.c
 	eh_personality.c
 	encoding2.c
-	gc_boehm.c
+	gc_none.c
 	hash_table.c
 	hooks.c
 	ivar.c
@@ -108,6 +108,7 @@ if (BOEHM_GC)
 	set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fobjc-gc")
 	set(objc_LINK_FLAGS "${objc_LINK_FLAGS} ${GC_CFLAGS}")
 	add_definitions(-DENABLE_GC)
+	list(APPEND libobjc_C_SRCS gc_boehm.c)
 endif ()
 
 set(LEGACY_COMPAT FALSE CACHE BOOL
@@ -221,6 +222,10 @@ endif ()
 target_link_libraries(objc ${CXX_RUNTIME})
 if (LIBGC)
 	target_link_libraries(objc ${LIBGC})
+endif ()
+find_library(LIBDISPATCH dispatch)
+if (LIBDISPATCH)
+	target_link_libraries(objc ${LIBDISPATCH})
 endif ()
 
 #
