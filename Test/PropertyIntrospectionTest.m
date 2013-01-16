@@ -15,9 +15,9 @@ __attribute__((objc_root_class))
 -(id)bar;
 -(void)setBar:(id)b;
 @end 
-@implementation Foo
-@synthesize  foo;
-@end
+//@implementation Foo
+//@synthesize  foo;
+//@end
 
 int main(void)
 {

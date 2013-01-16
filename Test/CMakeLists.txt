@@ -29,6 +29,7 @@ function(addtest_flags TEST FLAGS TEST_SOURCE)
 		INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}"
 		COMPILE_FLAGS "-fobjc-runtime=gnustep-1.7 -fblocks ${FLAGS}"
 		LINKER_LANGUAGE C
+		LINK_FLAGS "-lstdc++"
 	)
 	set_property(TEST ${TEST} PROPERTY
 		ENVIRONMENT "LD_LIBRARY_PATH="

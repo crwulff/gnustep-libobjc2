@@ -185,7 +185,7 @@ else (CXX_RUNTIME)
 		LINKER_LANGUAGE C
 		SOVERSION ${libobjc_VERSION}
 		)
-	set(CXX_RUNTIME "")
+	set(CXX_RUNTIME "stdc++")
 	list(APPEND INSTALL_TARGETS objcxx)
 endif (CXX_RUNTIME)
 
