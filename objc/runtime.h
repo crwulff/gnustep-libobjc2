@@ -208,6 +208,8 @@ typedef struct
 #endif
 
 #include "slot.h"
+#include "message.h"
+
 
 /**
  * Adds an instance variable to the named class.  The class must not have been

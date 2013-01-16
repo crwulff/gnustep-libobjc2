@@ -211,6 +211,7 @@ static inline uint32_t hash_selector(const void *s)
 }
 
 #define MAP_TABLE_NAME selector
+#define MAP_TABLE_SINGLE_THREAD
 #define MAP_TABLE_COMPARE_FUNCTION selector_identical
 #define MAP_TABLE_HASH_KEY hash_selector
 #define MAP_TABLE_HASH_VALUE hash_selector
@@ -245,6 +246,7 @@ PRIVATE void init_selector_tables()
 static SEL selector_lookup(const char *name, const char *types)
 {
 	struct objc_selector sel = {{name}, types};
+	LOCK_FOR_SCOPE(&selector_table_lock);
 	return selector_table_get(sel_table, &sel);
 }
 static inline void add_selector_to_table(SEL aSel, int32_t uid, uint32_t idx)
@@ -352,7 +354,19 @@ static SEL objc_register_selector_copy(SEL aSel, BOOL copyArgs)
 	}
 	// Create a copy of this selector.
 	copy = selector_pool_alloc();
-	copy->name = copyArgs ? strdup(aSel->name) : aSel->name;
+	copy->name = aSel->name;
+	if (copyArgs)
+	{
+		SEL untyped = selector_lookup(aSel->name, 0);
+		if (untyped != NULL)
+		{
+			copy->name = sel_getName(untyped);
+		}
+		else
+		{
+			copy->name = strdup(aSel->name);
+		}
+	}
 	copy->types = (NULL == aSel->types) ? NULL :
 	                 (copyArgs ? strdup(aSel->types) : aSel->types);
 	// Try to register the copy as the authoritative version

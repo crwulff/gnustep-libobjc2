@@ -18,7 +18,8 @@ PRIVATE dtable_t uninstalled_dtable;
 PRIVATE InitializingDtable *temporary_dtables;
 /** Lock used to protect the temporary dtables list. */
 PRIVATE mutex_t initialize_lock;
-/** The size of the largest dtable, rounded up to the nearest power of two. */
+/** The size of the largest dtable.  This is a sparse array shift value, so is
+ * 2^x in increments of 8. */
 static uint32_t dtable_depth = 8;
 
 struct objc_slot* objc_get_slot(Class cls, SEL selector);
@@ -141,8 +142,8 @@ static dtable_t create_dtable_for_class(Class class, dtable_t root_dtable)
 
 PRIVATE void objc_resize_dtables(uint32_t newSize)
 {
-	if ((1<<dtable_depth > newSize) || (dtable_depth >= 32)) { return; }
-	dtable_depth += 8;
+	if (1<<dtable_depth > newSize) { return; }
+	dtable_depth <<= 1;
 }
 
 #define HASH_UID(uid) ((uid >> 2) & 7)
@@ -551,15 +552,17 @@ Class class_table_next(void **e);
 PRIVATE void objc_resize_dtables(uint32_t newSize)
 {
 	// If dtables already have enough space to store all registered selectors, do nothing
-	if ((1<<dtable_depth > newSize) || (dtable_depth >= 32)) { return; }
+	if (1<<dtable_depth > newSize) { return; }
 
 	LOCK_RUNTIME_FOR_SCOPE();
+
+	if (1<<dtable_depth > newSize) { return; }
 
 	dtable_depth += 8;
 
 	uint32_t oldMask = uninstalled_dtable->mask;
 
-	SparseArrayExpandingArray(uninstalled_dtable);
+	SparseArrayExpandingArray(uninstalled_dtable, dtable_depth);
 	// Resize all existing dtables
 	void *e = NULL;
 	struct objc_class *next;
@@ -569,7 +572,8 @@ PRIVATE void objc_resize_dtables(uint32_t newSize)
 			NULL != next->dtable &&
 			((SparseArray*)next->dtable)->mask == oldMask)
 		{
-			SparseArrayExpandingArray((void*)next->dtable);
+			SparseArrayExpandingArray((void*)next->dtable, dtable_depth);
+			SparseArrayExpandingArray((void*)next->isa->dtable, dtable_depth);
 		}
 	}
 }
@@ -680,6 +684,12 @@ PRIVATE void objc_send_initialize(id object)
 		return;
 	}
 
+	// Lock the runtime while we're creating dtables and before we acquire any
+	// other locks.  This prevents a lock-order reversal when 
+	// dtable_for_class is called from something holding the runtime lock while
+	// we're still holding the initialize lock.  We should ensure that we never
+	// acquire the runtime lock after acquiring the initialize lock.
+	LOCK_RUNTIME();
 	LOCK_OBJECT_FOR_SCOPE((id)meta);
 	LOCK(&initialize_lock);
 	if (objc_test_class_flag(class, objc_class_flag_initialized))
@@ -696,6 +706,14 @@ PRIVATE void objc_send_initialize(id object)
 
 	dtable_t class_dtable = create_dtable_for_class(class, uninstalled_dtable);
 	dtable_t dtable = skipMeta ? 0 : create_dtable_for_class(meta, class_dtable);
+	// Now we've finished doing things that may acquire the runtime lock, so we
+	// can hold onto the initialise lock to make anything doing
+	// dtable_for_class block until we've finished updating temporary dtable
+	// lists.
+	// If another thread holds the runtime lock, it can now proceed until it
+	// gets into a dtable_for_class call, and then block there waiting for us
+	// to finish setting up the temporary dtable.
+	UNLOCK_RUNTIME();
 
 	static SEL initializeSel = 0;
 	if (0 == initializeSel)
@@ -730,7 +748,12 @@ PRIVATE void objc_send_initialize(id object)
 	__attribute__((cleanup(remove_dtable)))
 	InitializingDtable meta_buffer = { meta, dtable, &buffer };
 	temporary_dtables = &meta_buffer;
+	// We now release the initialize lock.  We'll reacquire it later when we do
+	// the cleanup, but at this point we allow other threads to get the
+	// temporary dtable and call +initialize in other threads.
 	UNLOCK(&initialize_lock);
+	// We still hold the class lock at this point.  dtable_for_class will block
+	// there after acquiring the temporary dtable.
 
 	checkARCAccessors(class);
 

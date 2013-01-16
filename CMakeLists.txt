@@ -10,6 +10,7 @@ set(CMAKE_C_FLAGS "-std=gnu99 ${CMAKE_C_FLAGS}")
 
 set(libobjc_VERSION 4.6.0)
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
 # Build configuration
 add_definitions( -DGNUSTEP -D__OBJC_RUNTIME_INTERNAL__=1)
 # Probably not needed anymore?
@@ -59,6 +60,7 @@ set(libobjc_HDRS
 	objc/developer.h
 	objc/encoding.h
 	objc/hooks.h
+	objc/message.h
 	objc/objc-api.h
 	objc/objc-arc.h
 	objc/objc-auto.h
@@ -146,7 +148,7 @@ else (${CMAKE_C_COMPILER_ID} MATCHES Clang*)
 	MESSAGE("WARNING: It is strongly recommended that you compile with clang")
 endif (${CMAKE_C_COMPILER_ID} MATCHES Clang*)
 
-
+set(INSTALL_TARGETS objc)
 
 set_source_files_properties(
 	${libobjc_OBJC_SRCS}
@@ -203,7 +205,6 @@ set_target_properties(objc PROPERTIES
 	OUTPUT_NAME ${LIBOBJC_NAME}
 	LINK_FLAGS "${objc_LINK_FLAGS}"
 	)
-set(INSTALL_TARGETS objc)
 
 
 set(BUILD_STATIC_LIBOBJC false CACHE BOOL
@@ -297,6 +298,11 @@ configure_file(
 add_custom_target(uninstall
 	COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 
-#enable_testing()
-#add_subdirectory(Test)
+set(TESTS TRUE CACHE BOOL
+	"Enable building the tests")
+
+if (TESTS)
+	enable_testing()
+	add_subdirectory(Test)
+endif (TESTS)
 
