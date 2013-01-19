@@ -54,7 +54,7 @@ clean_files += cmake_install.cmake
 clean_files += cmake_uninstall.cmake
 clean_files += CMakeCache.txt
 debian/config-stamp:
-	CC=clang CXX=clang cmake -G "Unix Makefiles" -DBOEHM_GC:BOOL=TRUE -DBUILD_STATIC_LIBOBJC:BOOL=TRUE -DLEGACY_COMPAT:BOOL=TRUE -DCMAKE_C_FLAGS:STRING="-ggdb"
+	CC=clang CXX=clang cmake -G "Unix Makefiles" -DBOEHM_GC:BOOL=TRUE -DBUILD_STATIC_LIBOBJC:BOOL=TRUE -DLEGACY_COMPAT:BOOL=TRUE -DCMAKE_C_FLAGS:STRING="-ggdb" -DTYPE_DEPENDENT_DISPATCH:BOOL=TRUE
 	touch $@
 
 
