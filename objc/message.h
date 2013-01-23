@@ -34,11 +34,7 @@ id objc_msgSend(id self, SEL _cmd, ...);
  * architecture, so take great care if using this function for small (two
  * integer) structures.
  */
-#ifdef __cplusplus
 id objc_msgSend_stret(id self, SEL _cmd, ...);
-#else
-void objc_msgSend_stret(id self, SEL _cmd, ...);
-#endif
 /**
  * Standard message sending function.  This function must be cast to the
  * correct types for the function before use.  The first argument is the
