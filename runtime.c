@@ -19,6 +19,9 @@
 #include <stdlib.h>
 #include <assert.h>
 
+extern int debugMessages;
+extern FILE *debugFile;
+
 struct objc_slot *objc_get_slot(Class cls, SEL selector);
 #define CHECK_ARG(arg) if (0 == arg) { return 0; }
 
@@ -77,6 +80,8 @@ PRIVATE void call_cxx_construct(id obj)
  */
 static Method class_getInstanceMethodNonrecursive(Class aClass, SEL aSelector)
 {
+	if (debugMessages >= 2)
+		fprintf(debugFile, "class_getInstanceMethodNonRecursive: %s %s\n", class_getName(aClass), sel_getName(aSelector));
 	for (struct objc_method_list *methods = aClass->methods;
 		methods != NULL ; methods = methods->next)
 	{
@@ -85,10 +90,12 @@ static Method class_getInstanceMethodNonrecursive(Class aClass, SEL aSelector)
 			Method method = &methods->methods[i];
 			if (sel_isEqual(method->selector, aSelector))
 			{
+				if (debugMessages >= 2) fprintf(debugFile, "METHOD--> %p\n", method);
 				return method;
 			}
 		}
 	}
+	if (debugMessages >= 2) fprintf(debugFile, "METHOD--> %p\n", NULL);
 	return NULL;
 }
 
@@ -367,6 +374,8 @@ Method class_getInstanceMethod(Class aClass, SEL aSelector)
 {
 	CHECK_ARG(aClass);
 	CHECK_ARG(aSelector);
+	if (debugMessages >= 2)
+		fprintf(debugFile, "class_getInstanceMethod: %s %s\n", class_getName(aClass), sel_getName(aSelector));
 	// If the class has a dtable installed, then we can use the fast path
 	if (classHasInstalledDtable(aClass))
 	{
@@ -377,6 +386,7 @@ Method class_getInstanceMethod(Class aClass, SEL aSelector)
 			slot = objc_get_slot(aClass, sel_registerName(sel_getName(aSelector)));
 			if (NULL == slot)
 			{
+				if (debugMessages >= 2) fprintf(debugFile, "METHOD--> %p\n", NULL);
 				return NULL;
 			}
 		}
@@ -390,6 +400,7 @@ Method class_getInstanceMethod(Class aClass, SEL aSelector)
 	Method m = class_getInstanceMethodNonrecursive(aClass, aSelector);
 	if (NULL != m)
 	{
+		if (debugMessages >= 2) fprintf(debugFile, "METHOD--> %p\n", m);
 		return m;
 	}
 	return class_getInstanceMethod(class_getSuperclass(aClass), aSelector);

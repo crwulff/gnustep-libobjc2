@@ -6,13 +6,64 @@
 #include "objc/hooks.h"
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 void objc_send_initialize(id object);
 
-static long long nil_method(id self, SEL _cmd) { return 0; }
-static long double nil_method_D(id self, SEL _cmd) { return 0; }
-static double nil_method_d(id self, SEL _cmd) { return 0; }
-static float nil_method_f(id self, SEL _cmd) { return 0; }
+int debugMessages = 0;
+FILE *debugFile = NULL;
+
+void __attribute__((constructor)) init_logging(void)
+{
+	char *loggingEnabled = getenv("NSObjCMessageLoggingEnabled");
+	if (loggingEnabled && (strcmp(loggingEnabled, "YES") == 0))
+		debugMessages = 1;
+	else if (loggingEnabled && (strcmp(loggingEnabled, "VERBOSE") == 0))
+		debugMessages = 2;
+	else
+		debugMessages = 0;
+
+	if (debugMessages > 0)
+	{
+		char filename[64];
+		snprintf(filename, 64, "/tmp/msgSends-%d", getpid());
+		filename[63] = 0;
+		debugFile = fopen(filename, "w");
+	}
+}
+
+void __attribute__((destructor)) term_logging(void)
+{
+	if (debugFile != NULL)
+	{
+		fclose(debugFile);
+		debugFile = NULL;
+	}
+}
+
+static long long nil_method(id self, SEL _cmd)
+{
+	if (debugMessages >= 2) fprintf(debugFile, "%p nil_method_ll [%s %s]\n", self, (self) ? class_getName(classForObject(self)) : "(nil)", sel_getName(_cmd));
+	return 0;
+}
+
+static long double nil_method_D(id self, SEL _cmd)
+{
+	if (debugMessages >= 2) fprintf(debugFile, "%p nil_method_ld [%s %s]\n", self, (self) ? class_getName(classForObject(self)) : "(nil)", sel_getName(_cmd));
+	return 0;
+}
+
+static double nil_method_d(id self, SEL _cmd)
+{
+	if (debugMessages >= 2) fprintf(debugFile, "%p nil_method_d [%s %s]\n", self, (self) ? class_getName(classForObject(self)) : "(nil)", sel_getName(_cmd));
+	return 0;
+}
+
+static float nil_method_f(id self, SEL _cmd)
+{
+	if (debugMessages >= 2) fprintf(debugFile, "%p nil_method_f [%s %s]\n", self, (self) ? class_getName(classForObject(self)) : "(nil)", sel_getName(_cmd));
+	return 0;
+}
 
 static struct objc_slot nil_slot = { Nil, Nil, 0, 1, (IMP)nil_method };
 static struct objc_slot nil_slot_D = { Nil, Nil, 0, 1, (IMP)nil_method_D };
@@ -63,6 +114,8 @@ Slot_t objc_msg_lookup_internal(id *receiver,
 {
 retry:;
 	Class class = classForObject((*receiver));
+	if (debugMessages >= 2)
+		fprintf(debugFile, "%p->%p [%s %s]\n", sender, receiver, class_getName(class), sel_getName(selector));
 	Slot_t result = objc_dtable_lookup(class->dtable, selector->index);
 	if (UNLIKELY(0 == result))
 	{
@@ -107,6 +160,14 @@ retry:;
 			}
 		}
 	}
+	if (debugMessages && result)
+	{
+		fprintf(debugFile, "%c %s %s %s\n",
+			class_isMetaClass(result->owner) ? '+' : '-',
+			class_getName(class),
+			class_getName(result->owner),
+			sel_getName(selector));
+	}
 	return result;
 }
 
@@ -140,6 +201,8 @@ Slot_t objc_msg_lookup_sender(id *receiver, SEL selector, id sender)
 	// inlined trivially.
 	if (UNLIKELY(*receiver == nil))
 	{
+		if (debugMessages >= 2)
+			fprintf(debugFile, "%p->%p [? %s]\n", sender, *receiver, sel_getName(selector));
 		// Return the correct kind of zero, depending on the type encoding.
 		if (selector->types)
 		{
@@ -183,6 +246,8 @@ Slot_t objc_msg_lookup_sender(id *receiver, SEL selector, id sender)
 Slot_t objc_slot_lookup_super(struct objc_super *super, SEL selector)
 {
 	id receiver = super->receiver;
+	if (debugMessages >= 2)
+		fprintf(debugFile, "%p->%p [%s %s] (super)\n", super, receiver, class_getName(super->class), sel_getName(selector));
 	if (receiver)
 	{
 		Class class = super->class;

@@ -17,6 +17,9 @@
 	mov   DTABLE_OFFSET(%eax), %eax       # Load the dtable from the class
 	cmpl  uninstalled_dtable, %eax        # If this is not (yet) a valid dtable
 	je    5f                              # Do a slow lookup
+	movl  debugMessages@GOTPCREL(%rip), %eax # Do a slow lookup if debug logging is enabled
+	cmpl  $0, (%eax)
+	jne   5f
 	
 	mov   (%ecx), %ecx                    # Load the selector index
 
