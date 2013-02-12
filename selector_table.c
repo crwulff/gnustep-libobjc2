@@ -91,6 +91,35 @@ static const char *skip_irrelevant_type_info(const char *t)
 	}
 }
 
+/**
+ * Skip the structure or union definition body, stopping on the '}' or ')'
+ */
+static const char *skip_struct_def(const char *t)
+{
+	int braces = 1;
+	while (braces > 0)
+	{
+		switch (*t)
+		{
+			case '\0': return t;
+			case '}': case ')':
+				braces--;
+				if (braces == 0) { return t; }
+				break;
+
+			case '{': case '(':
+				braces++;
+				break;
+
+			default:
+				break;
+		}
+		t++;
+	}
+
+	return t;
+}
+
 static BOOL selector_types_equal(const char *t1, const char *t2)
 {
 	if (t1 == NULL || t2 == NULL) { return t1 == t2; }
@@ -136,8 +165,18 @@ static BOOL selector_types_equal(const char *t1, const char *t2)
 			return NO;
 		}
 
+		// Opaque types should match their non-opaque versions
+		BOOL structDef = NO;
+		if (*t1 == '=') structDef = YES;
+
 		if ('\0' != *t1) { t1++; }
 		if ('\0' != *t2) { t2++; }
+
+		if (structDef)
+		{
+			if (*t1 == '}' || *t1 == ')') { t2 = skip_struct_def(t2); }
+			else if (*t2 == '}' || *t2 == ')') { t1 = skip_struct_def(t1); }
+		}
 	}
 	return YES;
 }
@@ -207,7 +246,11 @@ static inline uint32_t hash_selector(const void *s)
 			{
 				case '@': case 'i': case 'I': case 'l': case 'L':
 				case 'q': case 'Q': case 's': case 'S': 
-				hash = hash * 33 + c;
+					hash = hash * 33 + c;
+					break;
+				case '=':
+					str = skip_struct_def(++str);
+					break;
 			}
 		}
 	}
