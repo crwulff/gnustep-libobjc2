@@ -261,7 +261,8 @@ void class_table_insert(Class class);
  */
 extern Class SmallObjectClasses[7];
 
-static BOOL isSmallObject(id obj)
+__attribute__((always_inline))
+static inline BOOL isSmallObject(id obj)
 {
 	uintptr_t addr = ((uintptr_t)obj);
 	return (addr & OBJC_SMALL_OBJECT_MASK) != 0;
