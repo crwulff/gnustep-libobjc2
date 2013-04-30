@@ -121,6 +121,8 @@ else ()
 	add_definitions(-DNO_LEGACY)
 endif ()
 
+include_directories(/usr/include/x86_64-linux-gnu/c++/4.7/)
+
 find_package(LLVM)
 set(LLVM_OPTS ${LLVM_FOUND} CACHE BOOL
 	"Build LLVM Objective-C optimisations")
