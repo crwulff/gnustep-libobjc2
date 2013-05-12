@@ -21,6 +21,12 @@ static void *alloc(size_t size)
 	return calloc(size, 1);
 }
 
+#ifndef ENABLE_GC
+void objc_registerThreadWithCollector(void) {}
+void objc_unregisterThreadWithCollector(void) {}
+void objc_assertRegisteredThreadWithCollector() {}
+#endif
+
 PRIVATE struct gc_ops gc_ops_none = 
 {
 	.allocate_class = allocate_class,

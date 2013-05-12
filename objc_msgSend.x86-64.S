@@ -20,8 +20,6 @@
 	mov   (\receiver), %r10               # Load the dtable from the class
 1:                                        # classLoaded
 	mov   DTABLE_OFFSET(%r10), %r10       # Load the dtable from the class
-	cmpq  uninstalled_dtable(%rip), %r10  # If this is not (yet) a valid dtable
-	je    5f                              # Do a slow lookup
 	movq  debugMessages@GOTPCREL(%rip), %rax # Do a slow lookup if debug logging is enabled
 	cmpl  $0, (%rax)
 	jne   5f
@@ -98,7 +96,7 @@
 	push  %rsi                           # Save self where it can be modified
 	mov   %rsp, %rdi
 	push  %rdx
-	mov   %rdx, %rsi                     # move _cmd to where the callee expects it to be
+	mov   %rdx, %rsi                     # move _cmd to where the callee expects it to be
 .endif
 
 	.cfi_adjust_cfa_offset 0xD8

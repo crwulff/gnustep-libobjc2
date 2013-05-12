@@ -1,3 +1,7 @@
+#if defined(__clang__)
+#pragma clang system_header
+#endif
+
 #ifndef _OBJC_MESSAGE_H_
 #define _OBJC_MESSAGE_H_
 

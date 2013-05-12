@@ -14,7 +14,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
 # Build configuration
 add_definitions( -DGNUSTEP -D__OBJC_RUNTIME_INTERNAL__=1)
 # Probably not needed anymore?
-#add_definitions( -D_XOPEN_SOURCE=500 -D__BSD_VISIBLE=1 -D_BSD_SOURCE=1)
+add_definitions( -D_XOPEN_SOURCE=700 -D__BSD_VISIBLE=1 -D_BSD_SOURCE=1)
 
 set(libobjc_ASM_SRCS 
 	block_trampolines.S
@@ -123,8 +123,23 @@ endif ()
 
 include_directories(/usr/include/x86_64-linux-gnu/c++/4.7/)
 
-find_package(LLVM)
-set(LLVM_OPTS ${LLVM_FOUND} CACHE BOOL
+find_package(LLVM QUIET)
+set(DEFAULT_ENABLE_LLVM ${LLVM_FOUND})
+if (DEFAULT_ENABLE_LLVM)
+	exec_program(llvm-config
+		ARGS --version
+		OUTPUT_VARIABLE LLVM_VER)
+	if (LLVM_VER MATCHES ".*svnn")
+		set(DEFAULT_ENABLE_LLVM FALSE)
+		message(STATUS "svn version of LLVM found.")
+		message(STATUS "Disabling LLVM options unless explicitly enabled.")
+	elseif (LLVM_VER VERSION_GREATER 3.2)
+		set(DEFAULT_ENABLE_LLVM FALSE)
+		message(STATUS "Untested version of LLVM (${LLVM_VER}) found.")
+		message(STATUS "Disabling LLVM options unless explicitly enabled.")
+	endif()
+endif()
+set(LLVM_OPTS ${DEFAULT_ENABLE_LLVM} CACHE BOOL
 	"Build LLVM Objective-C optimisations")
 if (LLVM_OPTS)
 	add_subdirectory(opts)
@@ -191,6 +206,8 @@ else (CXX_RUNTIME)
 	list(APPEND INSTALL_TARGETS objcxx)
 endif (CXX_RUNTIME)
 
+
+
 # Currently, we actually need pthreads, but we should use the platform's native
 # threading implementation (we do for everything except thread-local storage)
 set(CMAKE_THREAD_PREFER_PTHREAD)
@@ -231,6 +248,12 @@ if (LIBDISPATCH)
 	target_link_libraries(objc ${LIBDISPATCH})
 endif ()
 
+# Link libdispatch if available (we'll miss symbols for toydispatch otherwise)
+find_library(LIBDISPATCH dispatch)
+if (LIBDISPATCH)
+	target_link_libraries(objc ${LIBDISPATCH})
+endif ()
+
 #
 # Installation
 #
@@ -254,7 +277,8 @@ endif ()
 set(GNUSTEP_INSTALL_TYPE ${DEFAULT_INSTALL_TYPE} CACHE STRING
 	"GNUstep installation type.  Options are NONE, SYSTEM, NETWORK or LOCAL.")
 if (${GNUSTEP_INSTALL_TYPE} STREQUAL "NONE")
-	SET(LIB_INSTALL_PATH lib)
+	SET(LIB_INSTALL_PATH "lib" CACHE STRING
+		"Subdirectory of the root prefix where libraries are installed.")
 	SET(HEADER_INSTALL_PATH "include")
 else ()
 	EXEC_PROGRAM(gnustep-config
