@@ -380,6 +380,7 @@ Slot_t objc_get_slot(Class cls, SEL selector)
 		/* Install the dtable if it hasn't already been initialized. */
 		if (dtable == uninstalled_dtable)
 		{
+			objc_send_initialize((id)cls);
 			dtable = dtable_for_class(cls);
 			result = objc_dtable_lookup(dtable, selector->index);
 		}
