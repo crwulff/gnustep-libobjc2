@@ -51,8 +51,13 @@ static struct wx_buffer alloc_buffer(size_t size)
 	LOCK_FOR_SCOPE(&trampoline_lock);
 	if ((0 == offset) || (offset + size >= PAGE_SIZE))
 	{
-		int fd = mkstemp(tmpPattern);
-		unlink(tmpPattern);
+		// Dup the pattern because mkstemp will modify it
+		char *tmpFileName = strdup(tmpPattern);
+		int fd = mkstemp(tmpFileName);
+		unlink(tmpFileName);
+		free(tmpFileName);
+		if (fd < 0) abort();
+
 		ftruncate(fd, PAGE_SIZE);
 		void *w = mmap(NULL, PAGE_SIZE, PROT_WRITE, MAP_SHARED, fd, 0);
 		executeBuffer = mmap(NULL, PAGE_SIZE, PROT_READ|PROT_EXEC, MAP_SHARED, fd, 0);
