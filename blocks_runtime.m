@@ -110,72 +110,72 @@ static int cas(void *ptr, void *old, void *new)
 void _Block_object_assign(void *destAddr, const void *object, const int flags)
 {
 	//printf("Copying %x to %x with flags %x\n", object, destAddr, flags);
-	// FIXME: Needs to be implemented
-	//if(flags & BLOCK_FIELD_IS_WEAK)
+	if (IS_SET(flags, BLOCK_FIELD_IS_BYREF) &&
+	    !IS_SET(flags, BLOCK_BYREF_CALLER))
 	{
-	}
-	//else
-	{
-		if (IS_SET(flags, BLOCK_FIELD_IS_BYREF))
-		{
-			struct block_byref_obj *src = (struct block_byref_obj *)object;
-			struct block_byref_obj **dst = destAddr;
-			src = src->forwarding;
+		struct block_byref_obj *src = (struct block_byref_obj *)object;
+		struct block_byref_obj **dst = destAddr;
+		src = src->forwarding;
 
-			if ((src->flags & BLOCK_REFCOUNT_MASK) == 0)
+		if ((src->flags & BLOCK_REFCOUNT_MASK) == 0)
+		{
+			*dst = gc->malloc(src->size);
+			memcpy(*dst, src, src->size);
+			(*dst)->isa = _HeapBlockByRef;
+			// Refcount must be two; one for the copy and one for the
+			// on-stack version that will point to it.
+			(*dst)->flags += 2;
+			if (IS_SET(src->flags, BLOCK_HAS_COPY_DISPOSE))
 			{
-				*dst = gc->malloc(src->size);
-				memcpy(*dst, src, src->size);
-				(*dst)->isa = _HeapBlockByRef;
-				// Refcount must be two; one for the copy and one for the
-				// on-stack version that will point to it.
-				(*dst)->flags += 2;
-				if (IS_SET(src->flags, BLOCK_HAS_COPY_DISPOSE))
-				{
-					src->byref_keep(*dst, src);
-				}
-				(*dst)->forwarding = *dst;
-				// Concurrency.  If we try copying the same byref structure
-				// from two threads simultaneously, we could end up with two
-				// versions on the heap that are unaware of each other.  That
-				// would be bad.  So we first set up the copy, then try to do
-				// an atomic compare-and-exchange to point the old version at
-				// it.  If the forwarding pointer in src has changed, then we
-				// recover - clean up and then return the structure that the
-				// other thread created.
-				if (!__sync_bool_compare_and_swap(&src->forwarding, src, *dst))
-				{
-					if((size_t)src->size >= sizeof(struct block_byref_obj))
-					{
-						src->byref_dispose(*dst);
-					}
-					gc->free(*dst);
-					*dst = src->forwarding;
-				}
+				src->byref_keep(*dst, src);
 			}
-			else
+			(*dst)->forwarding = *dst;
+			// Concurrency.  If we try copying the same byref structure
+			// from two threads simultaneously, we could end up with two
+			// versions on the heap that are unaware of each other.  That
+			// would be bad.  So we first set up the copy, then try to do
+			// an atomic compare-and-exchange to point the old version at
+			// it.  If the forwarding pointer in src has changed, then we
+			// recover - clean up and then return the structure that the
+			// other thread created.
+			if (!__sync_bool_compare_and_swap(&src->forwarding, src, *dst))
 			{
-				*dst = (struct block_byref_obj*)src;
-				increment24(&(*dst)->flags);
+				if((size_t)src->size >= sizeof(struct block_byref_obj))
+				{
+					src->byref_dispose(*dst);
+				}
+				gc->free(*dst);
+				*dst = src->forwarding;
 			}
 		}
-		else if (IS_SET(flags, BLOCK_FIELD_IS_BLOCK))
+		else
 		{
-			struct Block_layout *src = (struct Block_layout*)object;
-			struct Block_layout **dst = destAddr;
+			*dst = (struct block_byref_obj*)src;
+			increment24(&(*dst)->flags);
+		}
+	}
+	else if (IS_SET(flags, BLOCK_FIELD_IS_BLOCK))
+	{
+		struct Block_layout *src = (struct Block_layout*)object;
+		struct Block_layout **dst = destAddr;
 
+		*dst = src;
+		if (!IS_SET(flags, BLOCK_FIELD_IS_WEAK) &&
+		    !IS_SET(flags, BLOCK_BYREF_CALLER))
+		{
 			*dst = Block_copy(src);
 		}
-		else if (IS_SET(flags, BLOCK_FIELD_IS_OBJECT) &&
-		         !IS_SET(flags, BLOCK_BYREF_CALLER))
+	}
+	else if (IS_SET(flags, BLOCK_FIELD_IS_OBJECT))
+	{
+		id src = (id)object;
+		void **dst = destAddr;
+		*dst = src;
+		if (!isGCEnabled &&
+		    !IS_SET(flags, BLOCK_FIELD_IS_WEAK) &&
+		    !IS_SET(flags, BLOCK_BYREF_CALLER))
 		{
-			id src = (id)object;
-			void **dst = destAddr;
-			*dst = src;
-			if (!isGCEnabled)
-			{
-				*dst = objc_retain(src);
-			}
+			*dst = objc_retain(src);
 		}
 	}
 }
@@ -188,44 +188,38 @@ void _Block_object_assign(void *destAddr, const void *object, const int flags)
  */
 void _Block_object_dispose(const void *object, const int flags)
 {
-	// FIXME: Needs to be implemented
-	//if(flags & BLOCK_FIELD_IS_WEAK)
+	if (IS_SET(flags, BLOCK_FIELD_IS_BYREF) && !IS_SET(flags, BLOCK_BYREF_CALLER))
 	{
-	}
-	//else
-	{
-		if (IS_SET(flags, BLOCK_FIELD_IS_BYREF))
+		struct block_byref_obj *src =
+			(struct block_byref_obj*)object;
+		src = src->forwarding;
+		if (src->isa == _HeapBlockByRef)
 		{
-			struct block_byref_obj *src =
-				(struct block_byref_obj*)object;
-			src = src->forwarding;
-			if (src->isa == _HeapBlockByRef)
+			int refcount = (src->flags & BLOCK_REFCOUNT_MASK) == 0 ? 0 : decrement24(&src->flags);
+			if (refcount == 0)
 			{
-				int refcount = (src->flags & BLOCK_REFCOUNT_MASK) == 0 ? 0 : decrement24(&src->flags);
-				if (refcount == 0)
+				if(IS_SET(src->flags, BLOCK_HAS_COPY_DISPOSE) && (0 != src->byref_dispose))
 				{
-					if(IS_SET(src->flags, BLOCK_HAS_COPY_DISPOSE) && (0 != src->byref_dispose))
-					{
-						src->byref_dispose(src);
-					}
-					gc->free(src);
+					src->byref_dispose(src);
 				}
+				gc->free(src);
 			}
 		}
-		else if (IS_SET(flags, BLOCK_FIELD_IS_BLOCK))
-		{
-			struct Block_layout *src = (struct Block_layout*)object;
-			Block_release(src);
-		}
-		else if (IS_SET(flags, BLOCK_FIELD_IS_OBJECT) &&
-		         !IS_SET(flags, BLOCK_BYREF_CALLER))
-		{
-			id src = (id)object;
-			if (!isGCEnabled)
-			{
-				objc_release(src);
-			}
-		}
+	}
+	else if (IS_SET(flags, BLOCK_FIELD_IS_BLOCK) &&
+		 !IS_SET(flags, BLOCK_FIELD_IS_WEAK) &&
+		 !IS_SET(flags, BLOCK_BYREF_CALLER))
+	{
+		struct Block_layout *src = (struct Block_layout*)object;
+		Block_release(src);
+	}
+	else if (IS_SET(flags, BLOCK_FIELD_IS_OBJECT) &&
+	         !IS_SET(flags, BLOCK_BYREF_CALLER) &&
+	         !IS_SET(flags, BLOCK_FIELD_IS_WEAK) &&
+		 !isGCEnabled)
+	{
+		id src = (id)object;
+		objc_release(src);
 	}
 }
 
