@@ -43,7 +43,7 @@ extern mutex_t initialize_lock;
  */
 static inline int classHasInstalledDtable(struct objc_class *cls)
 {
-	return (cls->dtable != uninstalled_dtable);
+	return (cls->dtable != uninstalled_dtable && cls->dtable != NULL);
 }
 
 int objc_sync_enter(id object);
