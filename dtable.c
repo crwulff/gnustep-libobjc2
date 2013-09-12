@@ -442,7 +442,7 @@ static void mergeMethodsFromSuperclass(Class super, Class cls, SparseArray *meth
 	{
 		// Don't bother updating dtables for subclasses that haven't been
 		// initialized yet
-		if (!classHasDtable(subclass)) { continue; }
+		if (!classHasInstalledDtable(subclass)) { continue; }
 
 		// Create a new (copy-on-write) array to pass down to children
 		SparseArray *newMethods = SparseArrayCopy(methods);
